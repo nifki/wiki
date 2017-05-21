@@ -1,0 +1,9 @@
+maps  = Rocks_makeMaps()
+demos = Rocks_makeDemos(maps)
+
+# Add a pause at the start of each demo
+FOR map=demo IN demos {
+  demos[map] = "---------------------------" + demo
+}
+
+Rocks_run(maps, demos, showDemos=TRUE, mapOrder="MINABCDEFGHJLM")

@@ -1,0 +1,142 @@
+DEF DumpLn(x) { DUMP x DUMP "\A/" }
+
+RESIZE WINDOW TO (10, 10)
+DumpLn(WINDOW)
+
+DEF SetWindowCol(colour) {
+  cols = [
+    black = [0, 0, 0],
+    white = [1, 1, 1],
+    red = [1, 0, 0],
+    green = [0, 1, 0],
+    blue = [0, 0, 1],
+    yellow = [1, 1, 0],
+    cyan = [0,1, 1],
+    magenta = [1, 0, 1]
+  ]
+  k = cols[colour]
+  ###old = [WINDOW.R, WINDOW.G, WINDOW.B]
+  SET WINDOW.R = k[0]; SET WINDOW.G = k[1]; SET WINDOW.B = k[2]
+  ###IF k != old { DumpLn(colour) }
+}
+
+DEF OnArrowKey(key, object) {
+  moves = [
+    LeftArrow  = [-1,  0],
+    RightArrow = [ 1,  0],
+    DownArrow  = [ 0,  1],
+    UpArrow    = [ 0, -1]
+  ]
+  # Apply the move, if it takes us off the Window, return an "undo it" move.
+  move = moves[key]
+  MOVE object.sprite BY (object.xstep*move[0], object.ystep*move[1])
+  IF NOT Contains(WINDOW, object.sprite) {
+    SetWindowCol("yellow")
+    RETURN [-object.xstep*move[0], -object.ystep*move[1]]
+  }
+  # We've already moved it and it worked.
+  RETURN [0, 0]
+}
+
+DEF OnLeft(object)  { RETURN OnArrowKey("LeftArrow", object) }
+DEF OnRight(object) { RETURN OnArrowKey("RightArrow", object) }
+DEF OnUp(object)    { RETURN OnArrowKey("UpArrow", object) }
+DEF OnDown(object)  { RETURN OnArrowKey("DownArrow", object) }
+
+DEF ballOnDown(self) {
+  d = OnDown(self)
+  IF d[1]!=0 { DUMP "Boing!\A/" }
+  RETURN d
+}
+
+genericHandlers = [
+  LeftArrow  = OnLeft,
+  RightArrow = OnRight,
+  DownArrow  = OnDown,
+  UpArrow    = OnUp
+]
+
+MOVE SPRITE(IMG5890) SIZE(WINDOW.W, ) TO (0, 0)
+
+ballSprite = SPRITE(ball) SIZE (1, 1)
+MOVE ballSprite TO (0, 0)
+
+logoHandlers = genericHandlers
+ballHandlers = genericHandlers + [DownArrow = ballOnDown]
+
+logoSprite = SPRITE(smalllogo) SIZE (1, 1)
+MOVE logoSprite TO (3, 3)
+
+GLOBAL Objects = [
+  ball = [sprite=ballSprite, handlers=ballHandlers, xstep=0.15, ystep=0.15,
+          dx=0, dy=0
+  ],
+  logo = [sprite=logoSprite, handlers=logoHandlers, xstep=0.5, ystep=0.5,
+          dx=0, dy=0
+  ]
+]
+
+## Returns TRUE if a and b overlap
+DEF Collides(a, b) {
+  IF a.X < b.X {
+    IF a.X + a.W < b.X { RETURN FALSE }
+  } ELSE {
+    IF b.X + b.W < a.X { RETURN FALSE }
+  }
+
+  IF a.Y < b.Y {
+    IF a.Y + a.H < b.Y { RETURN FALSE }
+  } ELSE {
+    IF b.Y + b.H < a.Y { RETURN FALSE }
+  }
+
+  RETURN TRUE
+}
+
+## Returns TRUE if a contains b (no part of b does not overlap a)
+DEF Contains(a, b) {
+  aL = a.X
+  aR = a.X + a.W
+  bL = b.X
+  bR = b.X + b.W
+
+  aT = a.Y
+  aB = a.Y + a.H
+  bT = b.Y
+  bB = b.Y + b.H
+
+  RETURN (
+    bL >= aL AND bR <= aR AND
+    bT >= aT AND bB <= aB
+  )
+}
+
+DEF Run() {
+  object = Objects.ball
+  WHILE TRUE {
+    SetWindowCol("black")
+    move = [0, 0]
+    FOR key=handler IN object.handlers {
+      IF KEYS[key]{
+        keymove = handler(object)
+        move = [move[0] + keymove[0], move[1] + keymove[1]]
+        MOVE object.sprite BY (move[0], move[1])
+        ret1 = Collides(Objects.ball.sprite, Objects.logo.sprite)
+        ret2 = Collides(Objects.logo.sprite, Objects.ball.sprite)
+        IF ret1 != ret2 {
+          SetWindowCol("red")
+          DumpLn(Objects.ball.sprite)
+          DumpLn(Objects.logo.sprite)
+          Crash()
+        } ELIF (ret1) {
+          SetWindowCol("green")
+        }
+      }
+    }
+    IF KEYS.LetterL { object=Objects.logo }
+    IF KEYS.LetterB { object=Objects.ball }
+    WAIT
+  }
+}
+
+Run()
